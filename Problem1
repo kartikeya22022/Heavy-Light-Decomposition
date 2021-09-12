@@ -1,0 +1,216 @@
+#include <bits/stdc++.h>
+using namespace std;
+int n;
+struct HLD
+{
+    int nn,blen,nchain,LOGN;
+    vector<vector<int>>g,par;
+    vector<int>U,V,W,level,sub,tree,pos;
+    vector<int>chainHead,chainParent,chainNumber,baseArray;
+    void init(int sz)
+    {
+        nn=sz;
+        LOGN=log2(n)+1;
+        tree=vector<int>(4*nn+5,0);
+        g=vector<vector<int>>(nn+1);
+        par=vector<vector<int>>(LOGN,vector<int>(nn+1,-1));
+        U=V=W=sub=pos=level=baseArray=chainHead=chainNumber=chainParent=vector<int>(nn+1,0);
+        
+        blen=0;
+        nchain=1;
+        W[0]=0,U[0]=1,V[0]=1;
+        chainHead[1]=1,chainParent[1]=1;
+        
+        for(int i=1;i<=nn;i++)g[i].clear();
+    }
+    void precompute()
+    {
+        for(int j=1;j<LOGN;j++)
+		{
+		    for(int i=1;i<=nn;i++)
+		    {
+		        if(par[j-1][i]==-1)continue;
+		        par[j][i]=par[j-1][par[j-1][i]];
+		    }
+		}
+    }
+    void build(int node,int l,int r)
+    {
+	    if(l==r)
+	    {   
+		    tree[node]=baseArray[l];
+		    return;
+	    }
+	    int mid=(l+r)/2;
+	    build(2*node,l,mid);
+	    build(2*node+1,mid+1,r);
+	    tree[node]=max(tree[2*node],tree[2*node+1]);
+    }
+    int query(int node,int l,int r,int ql,int qr)
+    {
+	    if(qr<l || ql>r || l>r || ql>qr)
+	    return -1;
+	    if(l>=ql && r<=qr)
+	    {
+		    return tree[node];
+	    }
+    	int mid=(l+r)/2;
+	    return max(query(2*node,l,mid,ql,qr),query(2*node+1,mid+1,r,ql,qr));
+    }
+    void update(int node,int l,int r,int idx,int value)
+    {
+    	if(idx<l || idx>r)
+	    return;
+	    if(l==r)
+	    {
+	    	tree[node]=value;
+	    	return;
+	    }
+	    int mid=(l+r)/2;
+	    update(2*node,l,mid,idx,value);
+	    update(2*node+1,mid+1,r,idx,value);
+	    tree[node]=max(tree[2*node],tree[2*node+1]);
+    }	
+    int adj(int v,int e)
+    {
+        return v^U[e]^V[e];
+    }
+    void dfs(int v,int e)
+    {
+    	int p=adj(v,e);
+    	par[0][v]=p;
+    	sub[v]=1;
+    	level[v]=level[p]+1;
+	    for(auto ee:g[v])
+	    {
+	        int u=adj(v,ee);
+	        if(ee==e)continue;
+	        dfs(u,ee);
+	        sub[v]+=sub[u];
+	    }
+    }
+    void hld(int v,int e)
+    {
+        int p=adj(v,e);
+    
+	    blen++;
+	    pos[v]=blen;
+	    baseArray[blen]=W[e];
+	    chainNumber[v]=nchain;
+	
+	    int sc=-1,sz=0;
+	    for(auto ee:g[v])
+	    {
+	        int u=adj(v,ee);
+	        if(ee==e)continue;
+	        if(sub[u]>sz)
+	        {
+	            sc=ee;
+	            sz=sub[u];
+	        }
+	    }
+	    if(sc!=-1)
+	    {
+	        int u=adj(v,sc);
+	        chainHead[u]=chainHead[v];
+	        chainParent[u]=chainParent[v];
+	        hld(u,sc);
+	    }
+	    for(auto ee:g[v])
+	    {
+	        int u=adj(v,ee);
+	        if(ee==e || ee==sc)continue;
+	        nchain++;
+	        chainHead[u]=u;
+	        chainParent[u]=v;
+	        hld(u,ee);
+	    }
+    }
+    int lca(int u,int v)
+    {
+        if(level[u]>level[v])swap(u,v);
+        int d=level[v]-level[u];
+        while(d)
+        {
+            int x=log2(d);
+            v=par[x][v];
+            d-=(1<<x);
+        }
+        if(u==v)return v;
+        for(int j=LOGN-1;j>=0;j--)
+        {
+            if(par[j][u]!=par[j][v])
+            {
+                u=par[j][u];
+                v=par[j][v];
+            }
+        }
+        return par[0][u];
+    }
+    int query_up(int v,int lca)
+    {
+	    int ans=0;
+	    while(1)
+	    {
+		    if(v==lca)break;
+		    if(chainHead[v]==chainHead[lca])
+		    {
+			    ans=max(ans,query(1,1,n,pos[lca]+1,pos[v]));
+			    break;
+		    }
+		    ans=max(ans,query(1,1,n,pos[chainHead[v]],pos[v]));
+		    v=par[0][chainHead[v]];
+	    }
+	    return ans;
+    }
+}hldBaba;
+int main()
+{
+    ios_base::sync_with_stdio(false);
+    cin.tie(0);
+    cout.tie(0);
+	int t;
+	scanf("%d",&t);
+	char s[15];
+	while(t--)
+	{
+	    scanf("%d",&n);
+	    hldBaba.init(n);
+		for (int i=1;i<n;i++)
+		{
+		    int u,v,w;
+			scanf("%d %d %d",&u,&v,&w);
+			hldBaba.g[u].push_back(i);
+			hldBaba.g[v].push_back(i);
+			hldBaba.U[i]=u,hldBaba.V[i]=v,hldBaba.W[i]=w;
+		}
+		hldBaba.dfs(1,0);
+		hldBaba.hld(1,0);
+		hldBaba.build(1,1,n);
+		hldBaba.precompute();
+		while(1)
+		{
+			scanf("%s",s);
+			if(s[0]=='D')break;
+			if(s[0]=='Q')
+			{
+			    int u,v;
+			    scanf("%d %d",&u,&v);
+ 				int x=hldBaba.lca(u,v);
+				int left=hldBaba.query_up(u,x);
+				int right=hldBaba.query_up(v,x);
+				printf("%d\n",max(left,right));
+			}
+			else if(s[0]=='C')
+			{
+			    int i,v,value;
+			    scanf("%d %d",&i,&value);
+				if(hldBaba.level[hldBaba.U[i]]>hldBaba.level[hldBaba.V[i]])v=hldBaba.U[i];
+				else if(hldBaba.level[hldBaba.U[i]]<hldBaba.level[hldBaba.V[i]])v=hldBaba.V[i];
+				hldBaba.update(1,1,n,hldBaba.pos[v],value);
+			}
+		}
+	}
+	return 0;
+}  
+//Problem https://www.spoj.com/problems/QTREE/
