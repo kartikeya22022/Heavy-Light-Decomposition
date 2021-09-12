@@ -1,0 +1,328 @@
+#include <bits/stdc++.h>
+using namespace std;
+#define int long long
+int n,q;
+struct Node
+{
+    int p1,s1,sm,mx;
+};
+struct HLD
+{
+    int z;
+    vector<int>lazy;
+    vector<Node>tree;
+    int nn,INF,blen,nchain,LOGN;
+    vector<vector<int>>g,par;
+    vector<int>U,V,A,level,sub,pos;
+    vector<int>chainHead,chainParent,chainNumber,baseArray;
+    void init(int sz)
+    {
+        z=0;
+        nn=sz;
+        INF=1e4+1;
+        LOGN=log2(n)+1;
+        tree=vector<Node>(4*nn+5);
+        g=vector<vector<int>>(nn+1);
+        lazy=vector<int>(4*nn+5,INF);
+        par=vector<vector<int>>(LOGN,vector<int>(nn+1,-1));
+        U=V=A=sub=pos=level=baseArray=chainHead=chainNumber=chainParent=vector<int>(nn+1,z);
+        
+        blen=0;
+        nchain=1;
+        U[0]=1,V[0]=1;
+        chainHead[1]=1,chainParent[1]=1;
+        
+        for(int i=1;i<=nn;i++)g[i].clear();
+    }
+    void precompute()
+    {
+        for(int j=1;j<LOGN;j++)
+		{
+		    for(int i=1;i<=nn;i++)
+		    {
+		        if(par[j-1][i]==-1)continue;
+		        par[j][i]=par[j-1][par[j-1][i]];
+		    }
+		}
+    }
+    void build(int node,int l,int r)
+    {
+	    if(l==r)
+	    {   
+	        lazy[node]=INF;
+	        tree[node].sm=A[baseArray[l]];
+		    tree[node].p1=max(A[baseArray[l]],z);
+		    tree[node].s1=max(A[baseArray[l]],z);
+		    tree[node].mx=max(A[baseArray[l]],z);
+		    return;
+	    }
+	    int mid=(l+r)/2;
+	    build(2*node,l,mid);
+	    build(2*node+1,mid+1,r);
+	    lazy[node]=INF;
+	    tree[node].sm=tree[2*node].sm+tree[2*node+1].sm;
+	    
+	    tree[node].p1=max(tree[2*node].p1,tree[2*node].sm+tree[2*node+1].p1);
+	    
+	    tree[node].s1=max(tree[2*node+1].s1,tree[2*node+1].sm+tree[2*node].s1);
+	    
+	    tree[node].mx=max({tree[2*node].mx,tree[2*node+1].mx,tree[2*node].s1+tree[2*node+1].p1});
+    }
+    void update(int node,int l,int r,int ul,int ur,int value)
+    {
+        if(lazy[node]!=INF)
+        {
+            tree[node].sm=((r-l+1)*lazy[node]);
+            tree[node].p1=max(z,(r-l+1)*lazy[node]);
+            tree[node].s1=max(z,(r-l+1)*lazy[node]);
+            tree[node].mx=max(z,(r-l+1)*lazy[node]);
+            if(l!=r)
+            {
+                lazy[2*node]=lazy[node];
+                lazy[2*node+1]=lazy[node];
+            }
+            lazy[node]=INF;
+        }
+        if(l>r || ul>ur || r<ul || ur<l)
+        {
+            return;
+        }
+        if(l>=ul && r<=ur)
+        {
+            tree[node].sm=((r-l+1)*value);
+            tree[node].p1=max(z,(r-l+1)*value);
+            tree[node].s1=max(z,(r-l+1)*value);
+            tree[node].mx=max(z,(r-l+1)*value);
+            if(l!=r)
+            {
+                lazy[2*node]=value;
+                lazy[2*node+1]=value;
+            }
+            return;
+        }
+        int mid=(l+r)/2;
+        update(2*node,l,mid,ul,ur,value);
+        update(2*node+1,mid+1,r,ul,ur,value);
+        tree[node].sm=tree[2*node].sm+tree[2*node+1].sm;
+	    
+	    tree[node].p1=max(tree[2*node].p1,tree[2*node].sm+tree[2*node+1].p1);
+	    
+	    tree[node].s1=max(tree[2*node+1].s1,tree[2*node+1].sm+tree[2*node].s1);
+	    
+	    tree[node].mx=max({tree[2*node].mx,tree[2*node+1].mx,tree[2*node].s1+tree[2*node+1].p1});
+    }
+    Node query(int node,int l,int r,int ql,int qr)
+    {
+        Node temp={0,0,0,0};
+        if(lazy[node]!=INF)
+        {
+            tree[node].sm=((r-l+1)*lazy[node]);
+            tree[node].p1=max(z,(r-l+1)*lazy[node]);
+            tree[node].s1=max(z,(r-l+1)*lazy[node]);
+            tree[node].mx=max(z,(r-l+1)*lazy[node]);
+            if(l!=r)
+            {
+                lazy[2*node]=lazy[node];
+                lazy[2*node+1]=lazy[node];
+            }
+            lazy[node]=INF;
+        }
+	    if(qr<l || ql>r || l>r || ql>qr)
+	    {
+	        return temp;
+	    }
+	    if(l>=ql && r<=qr)
+	    {
+		    return tree[node];
+	    }
+    	int mid=(l+r)/2;
+	    Node temp1=query(2*node,l,mid,ql,qr);
+	    Node temp2=query(2*node+1,mid+1,r,ql,qr);
+	    
+	    temp.sm=temp1.sm+temp2.sm;
+	    
+	    temp.p1=max(temp1.p1,temp1.sm+temp2.p1);
+	    
+	    temp.s1=max(temp2.s1,temp2.sm+temp1.s1);
+	    
+	    temp.mx=max({temp1.mx,temp2.mx,temp1.s1+temp2.p1});
+	    return temp;
+    }
+    Node merge(Node temp1,Node temp2)
+    {
+        Node temp={z,z,z,z};
+        
+        temp.sm=temp1.sm+temp2.sm;
+	    
+	    temp.p1=max(temp1.p1,temp1.sm+temp2.p1);
+	    
+	    temp.s1=max(temp2.s1,temp2.sm+temp1.s1);
+	    
+	    temp.mx=max({temp1.mx,temp2.mx,temp1.s1+temp2.p1});
+	    
+	    return temp;
+    }
+    int adj(int v,int e)
+    {
+        return v^U[e]^V[e];
+    }
+    void dfs(int v,int e)
+    {
+    	int p=adj(v,e);
+    	par[0][v]=p;
+    	sub[v]=1;
+    	level[v]=level[p]+1;
+	    for(auto ee:g[v])
+	    {
+	        int u=adj(v,ee);
+	        if(ee==e)continue;
+	        dfs(u,ee);
+	        sub[v]+=sub[u];
+	    }
+    }
+    void hld(int v,int e)
+    {
+        int p=adj(v,e);
+    
+	    blen++;
+	    pos[v]=blen;
+	    baseArray[blen]=v;
+	    chainNumber[v]=nchain;
+	
+	    int sc=-1,sz=0;
+	    for(auto ee:g[v])
+	    {
+	        int u=adj(v,ee);
+	        if(ee==e)continue;
+	        if(sub[u]>sz)
+	        {
+	            sc=ee;
+	            sz=sub[u];
+	        }
+	    }
+	    if(sc!=-1)
+	    {
+	        int u=adj(v,sc);
+	        chainHead[u]=chainHead[v];
+	        chainParent[u]=chainParent[v];
+	        hld(u,sc);
+	    }
+	    for(auto ee:g[v])
+	    {
+	        int u=adj(v,ee);
+	        if(ee==e || ee==sc)continue;
+	        nchain++;
+	        chainHead[u]=u;
+	        chainParent[u]=v;
+	        hld(u,ee);
+	    }
+    }
+    int lca(int u,int v)
+    {
+        if(level[u]>level[v])swap(u,v);
+        int d=level[v]-level[u];
+        while(d)
+        {
+            int x=log2(d);
+            v=par[x][v];
+            d-=(1<<x);
+        }
+        if(u==v)return v;
+        for(int j=LOGN-1;j>=0;j--)
+        {
+            if(par[j][u]!=par[j][v])
+            {
+                u=par[j][u];
+                v=par[j][v];
+            }
+        }
+        return par[0][u];
+    }
+    Node query_up(int v,int x)
+    {
+	    Node temp1={z,z,z,z};
+	    while(1)
+	    {
+		    if(chainHead[v]==chainHead[x])
+		    {
+			    Node temp2=query(1,1,n,pos[x],pos[v]);
+			    temp1=merge(temp2,temp1);
+			    break;
+		    }
+		    Node temp2=query(1,1,n,pos[chainHead[v]],pos[v]);
+		    temp1=merge(temp2,temp1);
+		    v=par[0][chainHead[v]];
+	    }
+	    return temp1;
+    }
+    void update_up(int v,int x,int value)
+    {
+        while(1)
+	    {
+		    if(chainHead[v]==chainHead[x])
+		    {
+			    update(1,1,n,pos[x],pos[v],value);
+			    break;
+		    }
+		    update(1,1,n,pos[chainHead[v]],pos[v],value);
+		    v=par[0][chainHead[v]];
+	    }
+    }
+}hldBaba;
+int32_t main()
+{
+    ios_base::sync_with_stdio(false);
+    cin.tie(0);
+    cout.tie(0);
+	int t=1;
+	while(t--)
+	{
+	    scanf("%lld",&n);
+	    hldBaba.init(n);
+	    for(int i=1;i<=n;i++)
+	    {
+	        int a;
+	        scanf("%lld",&a);
+	        hldBaba.A[i]=a;
+	    }
+		for(int i=1;i<n;i++)
+		{
+		    int u,v;
+			scanf("%lld %lld",&u,&v);
+			hldBaba.g[u].push_back(i);
+			hldBaba.g[v].push_back(i);
+			hldBaba.U[i]=u,hldBaba.V[i]=v;
+		}
+		hldBaba.dfs(1,0);
+		hldBaba.hld(1,0);
+		hldBaba.build(1,1,n);
+		hldBaba.precompute();
+		scanf("%lld",&q);
+		while(q--)
+		{
+			int type;
+			scanf("%lld",&type);
+			if(type==1)
+			{
+			    int u,v;
+			    scanf("%lld %lld",&u,&v);
+			    int x=hldBaba.lca(u,v);
+			    Node temp1=hldBaba.query_up(u,x);
+			    Node temp2=hldBaba.query_up(v,x);
+			    Node temp3=hldBaba.query(1,1,n,hldBaba.pos[x],hldBaba.pos[x]);
+			    int ans=max({temp1.mx,temp2.mx,temp1.p1+temp2.p1-(temp3.sm)*(temp1.p1!=0)*(temp2.p1!=0)});
+			    printf("%lld\n",ans);
+			}
+			else
+			{
+			    int u,v,value;
+			    scanf("%lld %lld %lld",&u,&v,&value);
+			    int x=hldBaba.lca(u,v);
+				hldBaba.update_up(u,x,value);
+				hldBaba.update_up(v,x,value);
+			}
+		}
+	}
+	return 0;
+}   
+//Problem https://www.spoj.com/problems/GSS7/
